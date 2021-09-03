@@ -4,12 +4,12 @@
 \alias{are_nr}
 \title{Newton-Raphson method for the \code{are} function}
 \usage{
-are_nr(estimator, k, startingpoint, level = 0.95)
+are_nr(estimator, n, startingpoint, level = 0.95)
 }
 \arguments{
 \item{estimator}{M-type estimator (\code{'huber'} or \code{'tukey'}).}
 
-\item{k}{Dimension of the manifold.}
+\item{n}{Dimension of the manifold.}
 
 \item{startingpoint}{Initial estimate for the Newton-Raphson method. May be
 determined after looking at a graph of the \code{are} function.}

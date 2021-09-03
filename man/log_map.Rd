@@ -7,8 +7,8 @@
 log_map(manifold, p1, p2)
 }
 \arguments{
-\item{manifold}{Type of manifold (\code{'euclidean'}, \code{'sphere'}, or
-\code{'kendall'}).}
+\item{manifold}{Type of manifold (\code{'euclidean'}, \code{'sphere'},
+\code{'hyperbolic'}, or \code{'kendall'}).}
 
 \item{p1}{A vector (or column matrix) representing a point on the manifold.}
 
@@ -37,7 +37,12 @@ Fletcher, P. T. (2013). Geodesic regression and the theory of
   on Riemannian symmetric spaces. Journal of the Royal Statistical Society:
   Series B, 79, 463-482.
 
-  Shin, H.-Y. and Oh H.-S. (2020). Robust Geodesic Regression. <arXiv:2007.04518>
+  Calinon, S. (2020). Gaussians on Riemannian manifolds: Applications for
+  robot learning and adaptive control. IEEE Robotics & Automation Magazine,
+  27, 33-45.
+
+  Shin, H.-Y. and Oh H.-S. (2020). Robust Geodesic Regression.
+  <arXiv:2007.04518>
 }
 \seealso{
 \code{\link{exp_map}}, \code{\link{geo_dist}}.

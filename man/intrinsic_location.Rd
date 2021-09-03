@@ -15,8 +15,8 @@ intrinsic_location(
 )
 }
 \arguments{
-\item{manifold}{Type of manifold (\code{'euclidean'}, \code{'sphere'}, or
-\code{'kendall'}).}
+\item{manifold}{Type of manifold (\code{'euclidean'}, \code{'sphere'},
+\code{'hyperbolic'}, or \code{'kendall'}).}
 
 \item{y}{A matrix or data frame whose columns represent points on the
 manifold.}
@@ -43,7 +43,7 @@ algorithm.}
 A vector representing the location estimate
 }
 \description{
-Finds \eqn{\mathrm{argmin}_{p\in M}\sum_{i=1}^{N} \rho(d(p,y_i))} through a
+Finds \eqn{\mathrm{argmin}_{p\in M}\sum_{i=1} ^ {N} \rho(d(p,y_i))} through a
 gradient descent algorithm.
 }
 \details{

@@ -7,17 +7,17 @@
 onmanifold(manifold, y)
 }
 \arguments{
-\item{manifold}{Type of manifold (\code{'euclidean'}, \code{'sphere'}, or
-\code{'kendall'}).}
+\item{manifold}{Type of manifold (\code{'euclidean'}, \code{'sphere'},
+\code{'hyperbolic'}, or \code{'kendall'}).}
 
 \item{y}{A vector, matrix, or data frame whose columns should represent
 points on the manifold.}
 }
 \value{
-A named list containing \item{on}{a logical vector describing
-  whether or not each column of \code{y} is on the manifold.} \item{data}{a
-  matrix of data frame of the same dimensions as \code{y}; each column of
-  \code{y} has been projected onto the manifold.}
+A named list containing \item{on}{a logical vector describing whether
+  or not each column of \code{y} is on the manifold.} \item{data}{a matrix of
+  data frame of the same dimensions as \code{y}; each column of \code{y} has
+  been projected onto the manifold.}
 }
 \description{
 Checks whether each data point in \eqn{y} is on the given manifold, and if

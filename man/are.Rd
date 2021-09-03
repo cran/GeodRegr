@@ -4,13 +4,13 @@
 \alias{are}
 \title{Approximate ARE of an M-type estimator to the least-squares estimator}
 \usage{
-are(estimator, k, c = NULL)
+are(estimator, n, c = NULL)
 }
 \arguments{
 \item{estimator}{M-type estimator (\code{'l2'}, \code{'l1'}, \code{'huber'},
 or \code{'tukey'}).}
 
-\item{k}{Dimension of the manifold.}
+\item{n}{Dimension of the manifold.}
 
 \item{c}{A positive multiplier, or a vector of them, of \eqn{\sigma}, the
 square root of the variance, used in the cutoff parameter for the

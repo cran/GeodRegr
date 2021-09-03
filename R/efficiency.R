@@ -36,7 +36,7 @@ lowergamma <- function(s, x) {
 #'
 #' @param estimator M-type estimator (\code{'l2'}, \code{'l1'}, \code{'huber'},
 #'   or \code{'tukey'}).
-#' @param k Dimension of the manifold.
+#' @param n Dimension of the manifold.
 #' @param c A positive multiplier, or a vector of them, of \eqn{\sigma}, the
 #'   square root of the variance, used in the cutoff parameter for the
 #'   \code{'huber'} and \code{'tukey'} estimators; should be \code{NULL} for the
@@ -50,7 +50,7 @@ lowergamma <- function(s, x) {
 #' are('l1', 10)
 #'
 #' @export
-are <- function(estimator, k, c = NULL) {
+are <- function(estimator, n, c = NULL) {
   if (((estimator == 'huber') | (estimator == 'tukey')) & is.null(c)) {
     stop('a c value must be provided if the chosen m-estimator is huber or tukey')
   }
@@ -62,25 +62,25 @@ are <- function(estimator, k, c = NULL) {
       stop('c must be positive')
     }
   }
-  if ((k %% 1 != 0) | (k < 1)) {
-    stop('k must be a positive integer')
+  if ((n %% 1 != 0) | (n < 1)) {
+    stop('n must be a positive integer')
   }
   if (estimator == 'l2') {
     result <- 1
   } else if (estimator == 'l1') {
-    result <- ((gamma((k + 1) / 2))^2) / ((gamma(k / 2) * gamma((k + 2) / 2)))
+    result <- ((gamma((n + 1) / 2))^2) / ((gamma(n / 2) * gamma((n + 2) / 2)))
   } else if (estimator == 'huber') {
-    if (k == 1) { # k == 1 case must be treated separately
-      numfactor <- (k / 2) * lowergamma(k / 2, 0.5 * c^2)
+    if (n == 1) { # n == 1 case must be treated separately
+      numfactor <- (n / 2) * lowergamma(n / 2, 0.5 * c^2)
     } else {
-      numfactor <- (k / 2) * lowergamma(k / 2, 0.5 * c^2) + c * (k - 1) * (2^-1.5) * uppergamma((k - 1) / 2, 0.5 * c^2)
+      numfactor <- (n / 2) * lowergamma(n / 2, 0.5 * c^2) + c * (n - 1) * (2^-1.5) * uppergamma((n - 1) / 2, 0.5 * c^2)
     }
-    denfactor <- lowergamma((k + 2) / 2, 0.5 * c^2) + (0.5 * c^2) * uppergamma(k / 2, 0.5 * c^2)
-    result <- (numfactor^2) / (gamma((k + 2) / 2) * denfactor)
+    denfactor <- lowergamma((n + 2) / 2, 0.5 * c^2) + (0.5 * c^2) * uppergamma(n / 2, 0.5 * c^2)
+    result <- (numfactor^2) / (gamma((n + 2) / 2) * denfactor)
   } else if (estimator == 'tukey') {
-    numfactor <- (2 * (k + 4) / (c^4)) * lowergamma((k + 4) / 2, 0.5 * c^2) - (2 * (k + 2) / (c^2)) * lowergamma((k + 2) / 2, 0.5 * c^2) + (k / 2) * lowergamma(k / 2, 0.5 * c^2)
-    denfactor <- lowergamma((k + 2) / 2, 0.5 * c^2) - (8 / (c^2)) * lowergamma((k + 4) / 2, 0.5 * c^2) + (24 / (c^4)) * lowergamma((k + 6) / 2, 0.5 * c^2) - (32 / (c^6)) * lowergamma((k + 8) / 2, 0.5 * c^2) + (16 / (c^8)) * lowergamma((k + 10) / 2, 0.5 * c^2)
-    result <-  (numfactor^2) / (gamma((k + 2) / 2) * denfactor)
+    numfactor <- (2 * (n + 4) / (c^4)) * lowergamma((n + 4) / 2, 0.5 * c^2) - (2 * (n + 2) / (c^2)) * lowergamma((n + 2) / 2, 0.5 * c^2) + (n / 2) * lowergamma(n / 2, 0.5 * c^2)
+    denfactor <- lowergamma((n + 2) / 2, 0.5 * c^2) - (8 / (c^2)) * lowergamma((n + 4) / 2, 0.5 * c^2) + (24 / (c^4)) * lowergamma((n + 6) / 2, 0.5 * c^2) - (32 / (c^6)) * lowergamma((n + 8) / 2, 0.5 * c^2) + (16 / (c^8)) * lowergamma((n + 10) / 2, 0.5 * c^2)
+    result <-  (numfactor^2) / (gamma((n + 2) / 2) * denfactor)
   } else {
     stop('the M-estimator must be one of l2, l1, huber, or tukey')
   }
@@ -88,27 +88,27 @@ are <- function(estimator, k, c = NULL) {
 }
 
 # Partial derivative of the are function with respect to c
-deriv <- function(estimator, k, c) {
+deriv <- function(estimator, n, c) {
   if (estimator == 'huber') {
-    if (k == 1) { # k == 1 case must be treated separately
-      factor1 <- (k / 2) * lowergamma(k / 2, 0.5 * c^2)
-      factor3 <- (c^(k - 1)) * (2^(-k / 2)) * exp(-0.5 * c^2)
+    if (n == 1) { # n == 1 case must be treated separately
+      factor1 <- (n / 2) * lowergamma(n / 2, 0.5 * c^2)
+      factor3 <- (c^(n - 1)) * (2^(-n / 2)) * exp(-0.5 * c^2)
     } else {
-      factor1 <- (k / 2) * lowergamma(k / 2, 0.5 * c^2) + c * (k - 1) * (2^-1.5) * uppergamma((k - 1) / 2, 0.5 * c^2)
-      factor3 <- (c^(k - 1)) * (2^(-k / 2)) * exp(-0.5 * c^2) + (k - 1) * (2^-1.5) * uppergamma((k - 1) / 2, 0.5 * c^2)
+      factor1 <- (n / 2) * lowergamma(n / 2, 0.5 * c^2) + c * (n - 1) * (2^-1.5) * uppergamma((n - 1) / 2, 0.5 * c^2)
+      factor3 <- (c^(n - 1)) * (2^(-n / 2)) * exp(-0.5 * c^2) + (n - 1) * (2^-1.5) * uppergamma((n - 1) / 2, 0.5 * c^2)
     }
-    factor2 <- lowergamma((k + 2) / 2, 0.5 * c^2) + (0.5 * c^2) * uppergamma(k / 2, 0.5 * c^2)
-    factor4 <- c * uppergamma(k / 2, 0.5 * c^2)
+    factor2 <- lowergamma((n + 2) / 2, 0.5 * c^2) + (0.5 * c^2) * uppergamma(n / 2, 0.5 * c^2)
+    factor4 <- c * uppergamma(n / 2, 0.5 * c^2)
   } else if (estimator == 'tukey') {
-    factor1 <- (2 * (k + 4) / (c^4)) * lowergamma((k + 4) / 2, 0.5 * c^2) - (2 * (k + 2) / (c^2)) * lowergamma((k + 2) / 2, 0.5 * c^2) + (k / 2) * lowergamma(k / 2, 0.5 * c^2)
-    factor2 <- lowergamma((k + 2) / 2, 0.5 * c^2) - (8 / (c^2)) * lowergamma((k + 4) / 2, 0.5 * c^2) + (24 / (c^4)) * lowergamma((k + 6) / 2, 0.5 * c^2) - (32 / (c^6)) * lowergamma((k + 8) / 2, 0.5 * c^2) + (16 / (c^8)) * lowergamma((k + 10) / 2, 0.5 * c^2)
-    factor3 <- -(8 * (k + 4) / (c^5)) * lowergamma((k + 4) / 2, 0.5 * c^2) + (4 * (k + 2) / (c^3)) * lowergamma((k + 2) / 2, 0.5 * c^2) - c^(k - 1) * 2^(-((k - 2) / 2)) * exp(-0.5 * c^2)
-    factor4 <- (16 / (c^3)) * lowergamma((k + 4) / 2, 0.5 * c^2) - (96 / (c^5)) * lowergamma((k + 6) / 2, 0.5 * c^2) + (192 / (c^7)) * lowergamma((k + 8) / 2, 0.5 * c^2) - (128 / (c^9)) * lowergamma((k + 10) / 2, 0.5 * c^2)
+    factor1 <- (2 * (n + 4) / (c^4)) * lowergamma((n + 4) / 2, 0.5 * c^2) - (2 * (n + 2) / (c^2)) * lowergamma((n + 2) / 2, 0.5 * c^2) + (n / 2) * lowergamma(n / 2, 0.5 * c^2)
+    factor2 <- lowergamma((n + 2) / 2, 0.5 * c^2) - (8 / (c^2)) * lowergamma((n + 4) / 2, 0.5 * c^2) + (24 / (c^4)) * lowergamma((n + 6) / 2, 0.5 * c^2) - (32 / (c^6)) * lowergamma((n + 8) / 2, 0.5 * c^2) + (16 / (c^8)) * lowergamma((n + 10) / 2, 0.5 * c^2)
+    factor3 <- -(8 * (n + 4) / (c^5)) * lowergamma((n + 4) / 2, 0.5 * c^2) + (4 * (n + 2) / (c^3)) * lowergamma((n + 2) / 2, 0.5 * c^2) - c^(n - 1) * 2^(-((n - 2) / 2)) * exp(-0.5 * c^2)
+    factor4 <- (16 / (c^3)) * lowergamma((n + 4) / 2, 0.5 * c^2) - (96 / (c^5)) * lowergamma((n + 6) / 2, 0.5 * c^2) + (192 / (c^7)) * lowergamma((n + 8) / 2, 0.5 * c^2) - (128 / (c^9)) * lowergamma((n + 10) / 2, 0.5 * c^2)
   } else {
     stop('the M-estimator must be one of huber or tukey')
   }
   numerator <- 2 * factor1 * factor3 * factor2 - (factor1^2) * factor4
-  denominator <- (gamma((k + 2) / 2)) * factor2^2
+  denominator <- (gamma((n + 2) / 2)) * factor2^2
   result <- numerator / denominator
   return(result)
 }
@@ -127,7 +127,7 @@ deriv <- function(estimator, k, c) {
 #' recommended.
 #'
 #' @param estimator M-type estimator (\code{'huber'} or \code{'tukey'}).
-#' @param k Dimension of the manifold.
+#' @param n Dimension of the manifold.
 #' @param startingpoint Initial estimate for the Newton-Raphson method. May be
 #'   determined after looking at a graph of the \code{are} function.
 #' @param level The desired ARE to the \code{'l2'} estimator.
@@ -145,9 +145,9 @@ deriv <- function(estimator, k, c) {
 #' are_nr('huber', dimension, 2)
 #'
 #' @export
-are_nr <- function(estimator, k, startingpoint, level = 0.95) {
+are_nr <- function(estimator, n, startingpoint, level = 0.95) {
   if (estimator == 'huber') {
-    if (level <= are('l1', k)) {
+    if (level <= are('l1', n)) {
       stop('the ARE of the L1 estimator is greater than the proposed ARE level')
     }
   }
@@ -162,7 +162,7 @@ are_nr <- function(estimator, k, startingpoint, level = 0.95) {
   count <- 0
   while (abs(new_c - old_c) > 0.000001) {
     old_c <- new_c
-    new_c <- old_c - (are(estimator, k, old_c) - level) / deriv(estimator, k, old_c)
+    new_c <- old_c - (are(estimator, n, old_c) - level) / deriv(estimator, n, old_c)
     if (new_c < 0) {
       stop('try again with a new starting point; consider using a graph of the are function to pick a good starting point')
     }

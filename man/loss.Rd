@@ -7,8 +7,8 @@
 loss(manifold, p, V, x, y, estimator, cutoff = NULL)
 }
 \arguments{
-\item{manifold}{Type of manifold (\code{'euclidean'}, \code{'sphere'}, or
-\code{'kendall'}).}
+\item{manifold}{Type of manifold (\code{'euclidean'}, \code{'sphere'},
+\code{'hyperbolic'}, or \code{'kendall'}).}
 
 \item{p}{A vector (or column matrix) on the manifold.}
 
@@ -38,10 +38,10 @@ Loss for a given \code{p} and \code{V}.
 \examples{
 y <- matrix(0L, nrow = 3, ncol = 64)
 for (i in 1:64) {
-  y[, i] <- exp_map('sphere', c(1, 0, 0), c(0, runif(1), runif(1)))
+  y[, i] <- exp_map('hyperbolic', c(1, 0, 0), c(0, runif(1), runif(1)))
 }
-intrinsic_mean <- intrinsic_location('sphere', y, 'l2')
-loss('sphere', intrinsic_mean, numeric(3), numeric(64), y, 'l2')
+intrinsic_mean <- intrinsic_location('hyperbolic', y, 'l2')
+loss('hyperbolic', intrinsic_mean, numeric(3), numeric(64), y, 'l2')
 
 }
 \author{

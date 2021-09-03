@@ -1,6 +1,9 @@
-# Inner product. v1 and v2 should be matrices.
+# Inner product. v1 and v2 should either be matrices of the same size or one of them (v1 in the hyperbolic case) should be a matrix and the other a vector of length equal to the number of rows in the matrix.
 ip <- function(manifold, v1, v2) {
   if ((manifold == 'euclidean') | (manifold == 'sphere')) {
+    result <- colSums(v1 * v2)
+  } else if (manifold == 'hyperbolic') {
+    v1[1, ] <- -v1[1, ]
     result <- colSums(v1 * v2)
   } else if (manifold == 'kendall') {
     result <- colSums(v1 * Conj(v2))
@@ -10,7 +13,7 @@ ip <- function(manifold, v1, v2) {
 
 # Magnitude of a vector. v should be a matrix.
 mag <- function(manifold, v) {
-  return(Re(sqrt(ip(manifold, v, v))))
+  return(Re(sqrt(ip(manifold, v, v) + 0i)))
 }
 
 # Function for internal use in the geo_reg function. Similar to exp_map, but vectorized and without the errors, for speed and so as to not unexpectedly stop the algorithm because of one small error that can be safely ignored without changing the result. Difference from expo2: p and v should be matrices of the same dimensions.
@@ -25,6 +28,14 @@ expo <- function(manifold, p, v) {
     index <- which(theta == 0) # theta == 0 case must be dealt with separately due to division by theta
     result[, index] <- p[, index]
     result <- t(t(result) / mag(manifold, result)) # reprojects result onto the manifold, for precision
+  } else if (manifold == 'hyperbolic') {
+    theta <- mag(manifold, v)
+    e1 <- t(t(p) / sqrt(-ip(manifold, p, p))) # reprojects p onto the manifold, for precision
+    e2 <- t(t(v) / theta)
+    result <- t(t(e1) * cosh(theta)) + t(t(e2) * sinh(theta))
+    index <- which(theta == 0) # theta == 0 case must be dealt with separately due to division by theta
+    result[, index] <- p[, index] # if theta == 0, the result is p
+    result <- t(t(result) / sqrt(-ip(manifold, result, result))) # reprojects result onto the manifold, for precision
   } else if (manifold == 'kendall') {
     meanp <- colMeans(p)
     theta <- mag(manifold, v)
@@ -46,10 +57,18 @@ expo2 <- function(manifold, p, v) {
     theta <- mag(manifold, v)
     e1 <- t(t(p) / mag(manifold, p))
     e2 <- t(t(v) / theta)
-    result <- e1 %*% t(cos(theta)) + t(t(e2) * sin(theta))
+    result <- e1 %*% cos(theta) + t(t(e2) * sin(theta))
     index <- which(theta == 0)
     result[, index] <- p
     result <- t(t(result) / mag(manifold, result))
+  } else if (manifold == 'hyperbolic') {
+    theta <- mag(manifold, v)
+    e1 <- t(t(p) / sqrt(-ip(manifold, p, p)))
+    e2 <- t(t(v) / theta)
+    result <- e1 %*% cosh(theta) + t(t(e2) * sinh(theta))
+    index <- which(theta == 0)
+    result[, index] <- p
+    result <- t(t(result) / sqrt(-ip(manifold, result, result)))
   } else if (manifold == 'kendall') {
     meanp <- colMeans(p)
     theta <- mag(manifold, v)
@@ -70,25 +89,38 @@ loga <- function(manifold, p1, p2) {
   } else if (manifold == 'sphere') {
     p1 <- t(t(p1) / mag(manifold, p1)) # reprojects p1 onto the manifold, for precision
     p2 <- t(t(p2) / mag(manifold, p2)) # reprojects p2 onto the manifold, for precision
-    a <- pmax(pmin(ip(manifold, p1, p2), 1), -1) # makes sure a is in [-1, 1]
+    a <- pmax(pmin(ip(manifold, p1, p2), 1), -1) # ensures a is in [-1, 1]
     theta <- acos(a)
     tang <- p2 - t(t(p1) * a)
-    if (any(mag(manifold, tang) == 0)) { # any(mag(manifold, tang) == 0) case must be dealt with separately due to division by mag(manifold, tang)
-      if (any(mag(manifold, p1 - p2) < 1e-6)) { # determining whether any(mag(manifold, tang) == 0) because of p1 = p2 or p1 = -p2
+    t <- mag(manifold, tang)
+    if (any(t == 0)) { # any(t == 0) case must be dealt with separately due to division by t
+      if (any(mag(manifold, p1 - p2) < 1e-6)) { # determining whether any(t == 0) because of p1 = p2 or p1 = -p2
         result <- numeric(dim(p1)[1])
-      } else if (any(mag(manifold, p1 + p2) < 1e-6)) { # determining whether any(mag(manifold, tang) == 0) because of p1 = p2 or p1 = -p2
+      } else if (any(mag(manifold, p1 + p2) < 1e-6)) { # determining whether any(t == 0) because of p1 = p2 or p1 = -p2
         stop('p2 is the antipode of p1 and is therefore not in the domain of the log map at p1') ## change to continue
       }
     }
-    result <- t(t(tang) * (theta / mag(manifold, tang)))
-    result[, which(mag(manifold, tang) == 0)] <- 0
+    result <- t(t(tang) * (theta / t))
+    result[, which(t == 0)] <- 0
+  } else if (manifold == 'hyperbolic') {
+    p1 <- t(t(p1) / sqrt(-ip(manifold, p1, p1))) # reprojects p1 onto the manifold, for precision
+    p2 <- t(t(p2) / sqrt(-ip(manifold, p2, p2))) # reprojects p2 onto the manifold, for precision
+    a <- pmin(ip(manifold, p1, p2), -1) # ensures -a is at least 1
+    theta <- acosh(-a)
+    tang <- p2 + t(t(p1) * a)
+    t <- mag(manifold, tang)
+    if (any(t == 0)) { # any(t == 0) case must be dealt with separately due to division by t
+      result <- numeric(dim(p1)[1])
+    }
+    result <- t(t(tang) * (theta / t))
+    result[, which(t == 0)] <- 0
   } else if (manifold == 'kendall') {
     meanp1 <- colMeans(p1)
     meanp2 <- colMeans(p2)
     p1 <- t((t(p1) - meanp1) / mag(manifold, t(t(p1) - meanp1))) # reprojects p1 onto the manifold, for precision
     p2 <-  t((t(p2) - meanp2) / mag(manifold, t(t(p2) - meanp2))) # reprojects p2 onto the manifold, for precision
     a <- ip(manifold, p1, p2)
-    theta <- acos(pmax(pmin(abs(a), 1), -1)) # makes sure argument is in [-1, 1]
+    theta <- acos(pmax(pmin(abs(a), 1), -1)) # ensures argument is in [-1, 1]
     tang <- t(t(p2) * (a / abs(a))) - t(t(p1) * abs(a))
     result <- t(t(tang) * (theta / mag(manifold, tang)))
     result[, which(mag(manifold, tang) == 0)] <- 0 # mag(manifold, tang) == 0 case must be dealt with separately due to division by mag(manifold, tang)
@@ -96,29 +128,61 @@ loga <- function(manifold, p1, p2) {
   return(result)
 }
 
-# Function for internal use in the geo_reg function. Similar to log_map, but vectorized and without the errors, for speed and so as to not unexpectedly stop the algorithm because of one small error that can be safely ignored without changing the result. Difference from loga1 and loga3: p1 should be a column matrix, p2 should be a matrix with the same number of rows. Only used for Kendall's shape space.
+# Function for internal use in the geo_reg function. Similar to log_map, but vectorized and without the errors, for speed and so as to not unexpectedly stop the algorithm because of one small error that can be safely ignored without changing the result. Difference from loga1 and loga3: p1 should be a column matrix, p2 should be a matrix with the same number of rows as p1. Needed for the sphere, hyperbolic space and Kendall's shape space.
 loga2 <- function(manifold, p1, p2) {
-  meanp1 <- colMeans(p1)
-  meanp2 <- colMeans(p2)
-  p1 <- t((t(p1) - meanp1) / mag(manifold, t(t(p1) - meanp1))) # reprojects p1 onto the manifold, for precision
-  p2 <-  t((t(p2) - meanp2) / mag(manifold, t(t(p2) - meanp2))) # reprojects p1 onto the manifold, for precision
-  a <- ip(manifold, as.vector(p1), p2)
-  theta <- acos(pmax(pmin(abs(a), 1), -1))
-  tang <- t(t(p2) * (a / abs(a))) - p1 %*% t(abs(a))
-  result <- t(t(tang) * (theta / mag(manifold, tang)))
-  result[, which(mag(manifold, tang) == 0)] <- 0
+  if (manifold == 'sphere') {
+    p1 <- t(t(p1) / mag(manifold, p1)) # reprojects p1 onto the manifold, for precision
+    p2 <- t(t(p2) / mag(manifold, p2)) # reprojects p2 onto the manifold, for precision
+    a <- pmax(pmin(ip(manifold, p2, as.vector(p1)), 1), -1) # ensures a is in [-1, 1]
+    theta <- acos(a)
+    tang <- p2 - p1 %*% a
+    t <- mag(manifold, tang)
+    result <- t(t(tang) * (theta / t))
+    result[, which(t == 0)] <- 0
+  } else if (manifold == 'hyperbolic') {
+    p1 <- t(t(p1) / sqrt(-ip(manifold, p1, p1))) # reprojects p1 onto the manifold, for precision
+    p2 <- t(t(p2) / sqrt(-ip(manifold, p2, p2))) # reprojects p2 onto the manifold, for precision
+    a <- pmin(ip(manifold, p2, as.vector(p1)), -1)
+    theta <- acosh(-a)
+    tang <- p2 + p1 %*% a
+    t <- mag(manifold, tang)
+    result <- t(t(tang) * (theta / t))
+    result[, which(t == 0)] <- 0
+  } else if (manifold == 'kendall') {
+    meanp1 <- colMeans(p1)
+    meanp2 <- colMeans(p2)
+    p1 <- t((t(p1) - meanp1) / mag(manifold, t(t(p1) - meanp1))) # reprojects p1 onto the manifold, for precision
+    p2 <-  t((t(p2) - meanp2) / mag(manifold, t(t(p2) - meanp2))) # reprojects p1 onto the manifold, for precision
+    a <- ip(manifold, as.vector(p1), p2)
+    theta <- acos(pmax(pmin(abs(a), 1), -1))
+    tang <- t(t(p2) * (a / abs(a))) - p1 %*% abs(a)
+    result <- t(t(tang) * (theta / mag(manifold, tang)))
+    result[, which(mag(manifold, tang) == 0)] <- 0
+  }
   return(result)
 }
 
-# Function for internal use in the geo_reg function. Similar to log_map, but vectorized and without the errors, for speed and so as to not unexpectedly stop the algorithm because of one small error that can be safely ignored without changing the result. Difference from loga2 and loga3: p2 should be a column matrix, p1 should be a matrix with the same number of rows. Only used for the sphere.
+# Function for internal use in the geo_reg function. Similar to log_map, but vectorized and without the errors, for speed and so as to not unexpectedly stop the algorithm because of one small error that can be safely ignored without changing the result. Difference from loga2 and loga3: p1 should be a matrix, p2 should be a column matrix with the same number of rows as p1. Needed for the sphere and hyperbolic space.
 loga3 <- function(manifold, p1, p2) {
-  p1 <- t(t(p1) / mag(manifold, p1)) # reprojects p1 onto the manifold, for precision
-  p2 <- t(t(p2) / mag(manifold, p2)) # reprojects p2 onto the manifold, for precision
-  a <- pmax(pmin(ip(manifold, p1, as.vector(p2)), 1), -1)
-  theta <- acos(a)
-  tang <- as.vector(p2) - t(t(p1) * a)
-  result <- t(t(tang) * (theta / mag(manifold, tang)))
-  result[, which(mag(manifold, tang) == 0)] <- 0
+  if (manifold == 'sphere') {
+    p1 <- t(t(p1) / mag(manifold, p1)) # reprojects p1 onto the manifold, for precision
+    p2 <- t(t(p2) / mag(manifold, p2)) # reprojects p2 onto the manifold, for precision
+    a <- pmax(pmin(ip(manifold, p1, as.vector(p2)), 1), -1)
+    theta <- acos(a)
+    tang <- as.vector(p2) - t(t(p1) * a)
+    t <- mag(manifold, tang)
+    result <- t(t(tang) * (theta / t))
+    result[, which(t == 0)] <- 0
+  } else if (manifold == 'hyperbolic') {
+    p1 <- t(t(p1) / sqrt(-ip(manifold, p1, p1))) # reprojects p1 onto the manifold, for precision
+    p2 <- t(t(p2) / sqrt(-ip(manifold, p2, p2))) # reprojects p2 onto the manifold, for precision
+    a <- pmin(ip(manifold, p1, as.vector(p2)), -1)
+    theta <- acosh(-a)
+    tang <- as.vector(p2) + t(t(p1) * a)
+    t <- mag(manifold, tang)
+    result <- t(t(tang) * (theta / t))
+    result[, which(t == 0)] <- 0
+  }
   return(result)
 }
 
@@ -134,14 +198,37 @@ pt <- function(manifold, p1, p2, v) {
   } else if (manifold == 'sphere') {
     p1 <- t(t(p1) / mag(manifold, p1)) # reprojects p1 onto the manifold, for precision
     w <- loga(manifold, p1, p2)
+    t <- mag(manifold, w)
     e1 <- p1
-    e2 <- t(t(w) / mag(manifold, w))
+    e2 <- t(t(w) / t)
     a <- ip(manifold, v, e2)
     invar <- v - t(t(e2) * a)
-    t <- mag(manifold, w)
     result <- t(t(e2) * (a * cos(t))) - t(t(e1) * (a * sin(t))) + invar
-    index <- which(mag(manifold, w) == 0) # mag(manifold, w) == 0 case must be dealt with separately due to division by mag(manifold, w)
+    index <- which(t == 0) # t == 0 case must be dealt with separately due to division by t
     result[, index] <- v[, index]
+#    p1 <- t(t(p1) / mag(manifold, p1)) # reprojects p1 onto the manifold, for precision
+#    w <- loga(manifold, p1, p2)
+#    t <- mag(manifold, w)
+#    result <- v - t(t(w + loga(manifold, p2, p1)) * (ip(manifold, w, v) / (t ^ 2)))
+#    index <- which(t == 0) # t == 0 case must be dealt with separately due to division by t
+#    result[, index] <- v[, index]
+  } else if (manifold == 'hyperbolic') {
+    p1 <- t(t(p1) / sqrt(-ip(manifold, p1, p1))) # reprojects p1 onto the manifold, for precision
+    w <- loga(manifold, p1, p2)
+    t <- mag(manifold, w)
+    e1 <- p1
+    e2 <- t(t(w) / t)
+    a <- ip(manifold, v, e2)
+    invar <- v - t(t(e2) * a)
+    result <- t(t(e2) * (a * cosh(t))) + t(t(e1) * (a * sinh(t))) + invar
+    index <- which(t == 0) # t == 0 case must be dealt with separately due to division by t
+    result[, index] <- v[, index]
+    #p1 <- t(t(p1) / sqrt(-ip(manifold, p1, p1))) # reprojects p1 onto the manifold, for precision
+    #w <- loga(manifold, p1, p2)
+    #t <- mag(manifold, w)
+    #result <- v - t(t(w + loga(manifold, p2, p1)) * (ip(manifold, w, v) / (t ^ 2)))
+    #index <- which(t == 0) # t == 0 case must be dealt with separately due to division by t
+    #result[, index] <- v[, index]
   } else  if (manifold == 'kendall') {
     meanp1 <- colMeans(p1)
     meanp2 <- colMeans(p2)
@@ -150,7 +237,7 @@ pt <- function(manifold, p1, p2, v) {
     yi <- expo(manifold, p1, v)
     a <- ip(manifold, p1, p2)
     p2 <- t(t(p2) * (a / abs(a))) # optimal alignment of p2 with p1
-    b <- (1 - (abs(a))^2)^0.5
+    b <- (1 - (abs(a)) ^ 2) ^ 0.5
     p2tilde <- t(t(p2 - t(t(p1) * abs(a))) / b)
     result <- v - t(t(p1) * (ip(manifold, v, p1))) - t(t(p2tilde) * (ip(manifold, v, p2tilde))) + t(t(p1) * ((abs(a)) * (ip(manifold, v, p1)) - b * (ip(manifold, v, p2tilde)))) + t(t(p2tilde) * (b * (ip(manifold, v, p1)) + (abs(a)) * (ip(manifold, v, p2tilde))))
     result <- t(t(result) * (Conj(a / abs(a))))
@@ -160,23 +247,52 @@ pt <- function(manifold, p1, p2, v) {
   return(result)
 }
 
-# Function for internal use in the geo_reg function. Similar to par_trans, but vectorized and without the errors, for speed and so as to not unexpectedly stop the algorithm because of one small error that can be safely ignored without changing the result. Difference from pt1 and pt3: p1 and p2 should be column matrices, v should be a matrix with the same number of rows.
+# Function for internal use in the geo_reg function. Similar to par_trans, but vectorized and without the errors, for speed and so as to not unexpectedly stop the algorithm because of one small error that can be safely ignored without changing the result. Difference from pt1 and pt3: p1 and p2 should be column matrices, v should be a matrix with the same number of rows as p1 and p2.
 pt2 <- function(manifold, p1, p2, v) {
   if (manifold == 'euclidean') {
     result <- v
   } else if (manifold == 'sphere') {
     p1 <- t(t(p1) / mag(manifold, p1))
     w <- loga(manifold, p1, p2)
+    t <- mag(manifold, w)
     e1 <- p1
-    e2 <- w / mag(manifold, w)
-    if (mag(manifold, w) == 0) {
+    e2 <- w / t
+    if (t == 0) {
       result <- v
     } else {
       a <- ip(manifold, v, as.vector(e2))
-      invar <- v - e2 %*% t(a)
-      t <- mag(manifold, w)
-      result <- e2 %*% t(a * cos(t)) - e1 %*% t(a * sin(t)) + invar
+      invar <- v - e2 %*% a
+      result <- e2 %*% (a * cos(t)) - e1 %*% (a * sin(t)) + invar
     }
+#    p1 <- t(t(p1) / mag(manifold, p1))
+#    w <- loga(manifold, p1, p2)
+#    t <- mag(manifold, w)
+#    if (t == 0) {
+#      result <- v
+#    } else {
+#      result <- v - (w + loga(manifold, p2, p1)) %*% (ip(manifold, v, as.vector(w)) / (t ^ 2))
+#    }
+  } else if (manifold == 'hyperbolic') {
+    p1 <- t(t(p1) / sqrt(-ip(manifold, p1, p1)))
+    w <- loga(manifold, p1, p2)
+    t <- mag(manifold, w)
+    e1 <- p1
+    e2 <- w / t
+    if (t == 0) {
+      result <- v
+    } else {
+      a <- ip(manifold, v, as.vector(e2))
+      invar <- v - e2 %*% a
+      result <- e2 %*% (a * cosh(t)) + e1 %*% (a * sinh(t)) + invar
+    }
+#    p1 <- t(t(p1) / sqrt(-ip(manifold, p1, p1)))
+#    w <- loga(manifold, p1, p2)
+#    t <- mag(manifold, w)
+#    if (t == 0) {
+#      result <- v
+#    } else {
+#      result <- v - (w + loga(manifold, p2, p1)) %*% (ip(manifold, v, as.vector(w)) / (t ^ 2))
+#    }
   } else if (manifold == 'kendall') {
     meanp1 <- colMeans(p1)
     meanp2 <- colMeans(p2)
@@ -188,7 +304,7 @@ pt2 <- function(manifold, p1, p2, v) {
       result <- loga2(manifold, p2, yi)
     } else {
       p2 <- p2 * (a / abs(a)) # optimal alignment of p2 with p1
-      b <- (1 - (abs(a))^2)^0.5
+      b <- (1 - (abs(a)) ^ 2) ^ 0.5
       p2tilde <- (p2 - p1 * abs(a)) / b
       p1 <- as.vector(p1)
       p2tilde <- as.vector(p2tilde)
@@ -199,7 +315,7 @@ pt2 <- function(manifold, p1, p2, v) {
   return(result)
 }
 
-# Function for internal use in the geo_reg function. Similar to par_trans, but vectorized and without the errors, for speed and so as to not unexpectedly stop the algorithm because of one small error that can be safely ignored without changing the result. Difference from pt1 and pt2: p2 should be a column matrix, p1 and v should be matrices of the same dimensions.
+# Function for internal use in the geo_reg function. Similar to par_trans, but vectorized and without the errors, for speed and so as to not unexpectedly stop the algorithm because of one small error that can be safely ignored without changing the result. Difference from pt1 and pt2: p2 should be a column matrix, p1 and v should be matrices of the same dimensions with the same number of rows as p2.
 pt3 <- function(manifold, p1, p2, v) {
   if (manifold == 'euclidean') {
     result <- v
@@ -214,6 +330,29 @@ pt3 <- function(manifold, p1, p2, v) {
     result <- t(t(e2) * (a * cos(t))) - t(t(e1) * (a * sin(t))) + invar
     index <- which(mag(manifold, w) == 0)
     result[, index] <- v[, index]
+#    p1 <- t(t(p1) / mag(manifold, p1))
+#    w <- loga3(manifold, p1, p2)
+#    t <- mag(manifold, w)
+#    result <- v - t(t(w + loga2(manifold, p2, p1)) * (ip(manifold, w, v) / (t ^ 2)))
+#    index <- which(t == 0)
+#    result[, index] <- v[, index]
+  } else if (manifold == 'hyperbolic') {
+    p1 <- t(t(p1) / sqrt(-ip(manifold, p1, p1)))
+    w <- loga3(manifold, p1, p2)
+    e1 <- p1
+    e2 <- t(t(w) / mag(manifold, w))
+    a <- ip(manifold, v, e2)
+    invar <- v - t(t(e2) * a)
+    t <- mag(manifold, w)
+    result <- t(t(e2) * (a * cosh(t))) + t(t(e1) * (a * sinh(t))) + invar
+    index <- which(mag(manifold, w) == 0)
+    result[, index] <- v[, index]
+#    p1 <- t(t(p1) / sqrt(-ip(manifold, p1, p1)))
+#    w <- loga3(manifold, p1, p2)
+#    t <- mag(manifold, w)
+#    result <- v - t(t(w + loga2(manifold, p2, p1)) * (ip(manifold, w, v) / (t ^ 2)))
+#    index <- which(t == 0)
+#    result[, index] <- v[, index]
   } else if (manifold == 'kendall') {
     meanp1 <- colMeans(p1)
     meanp2 <- colMeans(p2)
@@ -221,8 +360,8 @@ pt3 <- function(manifold, p1, p2, v) {
     p2 <- t((t(p2) - meanp2) / mag(manifold, t(t(p2) - meanp2)))
     yi <- expo(manifold, p1, v)
     a <- ip(manifold, p1, as.vector(p2))
-    p2 <- p2 %*% t(a / abs(a)) # optimal alignment of p2 with p1
-    b <- (1 - (abs(a))^2)^0.5
+    p2 <- p2 %*% (a / abs(a)) # optimal alignment of p2 with p1
+    b <- (1 - (abs(a)) ^ 2) ^ 0.5
     p2tilde <- t(t(p2 - t(t(p1) * abs(a))) / b)
     result <- v - t(t(p1) * (ip(manifold, v, p1))) - t(t(p2tilde) * (ip(manifold, v, p2tilde))) + t(t(p1) * ((abs(a)) * (ip(manifold, v, p1)) - b * (ip(manifold, v, p2tilde)))) + t(t(p2tilde) * (b * (ip(manifold, v, p1)) + (abs(a)) * (ip(manifold, v, p2tilde))))
     result <- t(t(result) * (Conj(a / abs(a))))
@@ -235,16 +374,16 @@ pt3 <- function(manifold, p1, p2, v) {
 # Loss function for M-type estimators. t should be a vector of real numbers.
 rho <- function(t, estimator, cutoff = NULL) {
   if (estimator == 'l2') {
-    result <- 0.5 * t^2
+    result <- 0.5 * t ^ 2
   } else if (estimator == 'l1') {
     result <- abs(t)
   } else if (estimator == 'huber') {
-    result <- 0.5 * t^2
+    result <- 0.5 * t ^ 2
     index <- which(abs(t) >= cutoff)
-    result[index] <- cutoff * abs(t[index]) - 0.5 * cutoff^2
+    result[index] <- cutoff * abs(t[index]) - 0.5 * cutoff ^ 2
   } else if (estimator == 'tukey') {
-    result <- ((cutoff^2) / 6) * (1 - (1 - (t / cutoff)^2)^3)
-    result[which(abs(t) >= cutoff)] <- (cutoff^2) / 6
+    result <- ((cutoff ^ 2) / 6) * (1 - (1 - (t / cutoff) ^ 2) ^ 3)
+    result[which(abs(t) >= cutoff)] <- (cutoff ^ 2) / 6
   }
   return(result)
 }
@@ -260,7 +399,7 @@ rho_prime <- function(t, estimator, cutoff = NULL) {
     index <- which(abs(t) >= cutoff)
     result[index] <- cutoff * sign(t[index])
   } else if (estimator == 'tukey') {
-    result <- t * ((1 - (t / cutoff)^2)^2) * sign(t)
+    result <- t * ((1 - (t / cutoff) ^ 2) ^ 2) * sign(t)
     result[which(abs(t) >= cutoff)] <- 0
   }
   return(result)
@@ -277,7 +416,7 @@ eps <- function(manifold, p, V, x, y) {
   return(result)
 }
 
-# Moves a tangent vector at expo(p, v1) to a tangent vector at p1 using Jacobi fields and adjoint operators; used in gradient calculations. p should be a column matrix, v1 and v2 should be matrices of the same dimension. The columns of v1 should be tangent to p, and the columns of v2 should be tangent to exp_map(p, 'corresponsing column in v1').
+# Move tangent vectors v2 at expo(p, v1) to stangent vectors at p1 using Jacobi fields and adjoint operators; used in gradient calculations. p should be a column matrix, v1 and v2 should be matrices of the same dimension. The columns of v1 should be tangent to p, and the columns of v2 should be tangent to exp_map(p, 'corresponsing column in v1').
 jacobi <- function(manifold, p, v1, v2) {
   result <- vector('list')
   L <- mag(manifold, v1)
@@ -290,6 +429,15 @@ jacobi <- function(manifold, p, v1, v2) {
     v2_orth <- v2_0 - v2_tan
     result$p <- t(t(v2_orth) * cos(L)) + v2_tan
     result$V <- t(t(v2_orth) * ((sin(L)) / L)) + v2_tan
+    index <- which(L == 0)
+    result$p[, index] <- v2[, index]
+    result$V[, index] <- v2[, index]
+  } else if (manifold == 'hyperbolic') {
+    v2_0 <- pt3(manifold, expo2(manifold, p, v1), p, v2)
+    v2_tan <- t((t(v1) / L) * (ip(manifold, v2_0, t(t(v1) / L))))
+    v2_orth <- v2_0 - v2_tan
+    result$p <- t(t(v2_orth) * cosh(L)) + v2_tan
+    result$V <- t(t(v2_orth) * ((sinh(L)) / L)) + v2_tan
     index <- which(L == 0)
     result$p[, index] <- v2[, index]
     result$V[, index] <- v2[, index]
@@ -313,35 +461,21 @@ jacobi <- function(manifold, p, v1, v2) {
 
 # Calculates the gradient of the loss function at a given p, V. p, V, x, and y should all be matrices or appropriate dimensions. resids is redundant: it is simply eps(manifold, p, V, x, y). However, including it as an argument to the function quickens the calculation.
 grad <- function(manifold, p, V, x, y, resids, estimator, cutoff = NULL) {
-  n <- dim(x)[2]
+  k <- dim(x)[2]
   result <- vector("list")
   mags <- mag(manifold, resids)
   shifts <- V %*% t(x)
-  if (n == 1) { # for simple regression
-    multiplier <- rho_prime(mags, estimator, cutoff)
-    unit_resids<- t(t(resids) / mags)
-    unit_resids[, which(mags == 0)] <- 0
-    jf <- jacobi(manifold, p, shifts, unit_resids)
-    result$p <- t(t(jf$p) * multiplier)
-    result$V <- t(t(jf$V) * (as.vector(x) * multiplier))
-    index <- which(mags <= 0.000001) # to avoid division by a small number
-    result$p[, index] <- 0
-    result$V[, index] <- 0
-    result$p <- as.matrix(-rowSums(result$p))
-    result$V <- as.matrix(-rowSums(result$V))
-  } else { # for multiple regression
-    multiplier <- rho_prime(mags, estimator, cutoff)
-    unit_resids<- t(t(resids) / mags)
-    unit_resids[, which(mags == 0)] <- 0
-    approx_jf <- pt3(manifold, expo2(manifold, p, shifts), p, unit_resids)
-    result$p <- t(t(approx_jf) * multiplier)
-    result$V <- aperm(replicate(n, approx_jf), c(1, 3, 2)) * aperm(replicate(dim(p)[1], x * multiplier), c(3, 2, 1))
-    index <- which(mags <= 0.000001) # to avoid division by a small number
-    result$p[, index] <- 0
-    result$V[, , index] <- 0
-    result$p <- as.matrix(-rowSums(result$p))
-    result$V <- -rowSums(result$V, dims = 2)
-  }
+  multiplier <- rho_prime(mags, estimator, cutoff)
+  unit_resids<- t(t(resids) / mags)
+  unit_resids[, which(mags == 0)] <- 0
+  jf <- jacobi(manifold, p, shifts, unit_resids)
+  result$p <- t(t(jf$p) * multiplier)
+  result$V <- aperm(replicate(k, jf$V), c(1, 3, 2)) * aperm(replicate(dim(p)[1], x * multiplier), c(3, 2, 1))
+  index <- which(mags <= 0.000001) # to avoid division by a small number
+  result$p[, index] <- 0
+  result$V[, , index] <- 0
+  result$p <- as.matrix(-rowSums(result$p))
+  result$V <- -rowSums(result$V, dims = 2)
   return(result)
 }
 
@@ -351,14 +485,14 @@ grad <- function(manifold, p, V, x, y, resids, estimator, cutoff = NULL) {
 #' not, provides a modified version of \eqn{y} where each column has been
 #' projected onto the manifold.
 #'
-#' @param manifold Type of manifold (\code{'euclidean'}, \code{'sphere'}, or
-#'   \code{'kendall'}).
+#' @param manifold Type of manifold (\code{'euclidean'}, \code{'sphere'},
+#'   \code{'hyperbolic'}, or \code{'kendall'}).
 #' @param y A vector, matrix, or data frame whose columns should represent
 #'   points on the manifold.
-#' @return A named list containing \item{on}{a logical vector describing
-#'   whether or not each column of \code{y} is on the manifold.} \item{data}{a
-#'   matrix of data frame of the same dimensions as \code{y}; each column of
-#'   \code{y} has been projected onto the manifold.}
+#' @return A named list containing \item{on}{a logical vector describing whether
+#'   or not each column of \code{y} is on the manifold.} \item{data}{a matrix of
+#'   data frame of the same dimensions as \code{y}; each column of \code{y} has
+#'   been projected onto the manifold.}
 #' @author Ha-Young Shin
 #' @examples
 #' y1 <- matrix(rnorm(10), ncol = 2)
@@ -374,6 +508,9 @@ grad <- function(manifold, p, V, x, y, resids, estimator, cutoff = NULL) {
 #' @export
 onmanifold <- function(manifold, y) {
   y <- as.matrix(y)
+  if (any(is.nan(y))) {
+    stop('y should not contain NaN values')
+  }
   sample_size <- dim(y)[2]
   result <- vector("list")
   if (manifold == 'euclidean') {
@@ -382,7 +519,14 @@ onmanifold <- function(manifold, y) {
   } else if (manifold == 'sphere') {
     ons <- !logical(sample_size)
     mags <- mag(manifold, y)
-    ons[which(abs(mags - 1) > 0.000001)] <- FALSE
+    ons[which(abs(mags - 1) > 1e-6)] <- FALSE
+    y <- t(t(y) / mags)
+    result$on <- ons
+    result$data <- y
+  } else if (manifold == 'hyperbolic') {
+    ons <- !logical(sample_size)
+    mags <- sqrt(-ip(manifold, y, y))
+    ons[which((abs(mags - 1) > 1e-6) | (y[1, ] < 0))] <- FALSE
     y <- t(t(y) / mags)
     result$on <- ons
     result$data <- y
@@ -390,19 +534,19 @@ onmanifold <- function(manifold, y) {
     ons <- !logical(sample_size)
     mags <- mag(manifold, y)
     means <- colMeans(y)
-    ons[which((abs(mags - 1) > 0.000001) | (abs(means * Conj(means)) > 0.000001))] <- FALSE
+    ons[which((abs(mags - 1) > 1e-6) | (abs(means * Conj(means)) > 1e-6))] <- FALSE
     y <- t((t(y) - means) / mag(manifold, t(t(y) - means)))
     result$on <- ons
     result$data <- y
   } else {
-    stop('the manifold must be one of euclidean, sphere, or kendall')
+    stop('the manifold must be one of euclidean, sphere, hyperbolic, or kendall')
   }
   return(result)
 }
 
 #' Gradient descent for (robust) geodesic regression
 #'
-#' Finds \eqn{\mathrm{argmin}_{(p,V)\in M\times T_pM^n}\sum_{i=1}^{N}
+#' Finds \eqn{\mathrm{argmin}_{(p,V)\in M\times (T_pM) ^ n}\sum_{i=1} ^ {N}
 #' \rho(d(\mathrm{Exp}(p,Vx_i),y_i))} through a gradient descent algorithm.
 #'
 #' Each column of \code{x} should be centered to have an average of 0 for the
@@ -411,8 +555,8 @@ onmanifold <- function(manifold, y) {
 #' case of the \code{'sphere'}, an error will be raised if all points are on a
 #' pair of antipodes.
 #'
-#' @param manifold Type of manifold (\code{'euclidean'}, \code{'sphere'}, or
-#'   \code{'kendall'}).
+#' @param manifold Type of manifold (\code{'euclidean'}, \code{'sphere'},
+#'   \code{'hyperbolic'}, or \code{'kendall'}).
 #' @param x A vector, matrix, or data frame of independent variables; for
 #'   matrices and data frames, the rows and columns represent the subjects and
 #'   independent variables, respectively.
@@ -464,6 +608,7 @@ onmanifold <- function(manifold, y) {
 #' geo_reg('sphere', x, y, 'tukey', c = are_nr('tukey', 2, 6))
 #'
 #' @export
+#' @importFrom stats median
 geo_reg <- function(manifold, x, y, estimator, c = NULL, p_tol = 1e-5, V_tol = 1e-5, max_iter = 100000) {
   if (((estimator == 'huber') | (estimator == 'tukey')) & is.null(c)) {
     stop('a c value must be provided if the chosen m-estimator is huber or tukey')
@@ -476,17 +621,20 @@ geo_reg <- function(manifold, x, y, estimator, c = NULL, p_tol = 1e-5, V_tol = 1
       stop('c must be positive')
     }
   }
+  if (any(is.nan(x))) {
+    stop('x should not contain NaN values')
+  }
   ondata <- onmanifold(manifold, y)
   if (any(!(ondata$on))) {
-    stop('all data points in y must lie on the manifold')
+    warning('all data points in y must lie on the manifold')
   }
   y <- ondata$data
   embedded <- dim(y)[1]
   sample_size <- dim(y)[2]
   x <- as.matrix(x)
-  n <- dim(x)[2]
+  k <- dim(x)[2]
   allequal <- c()
-  for (var in 1:n) { # Deals with case when all of the data for one of the independent variables are equal
+  for (var in 1:k) { # Deals with case where all of the data for one of the independent variables are equal
     if (length(unique(x[, var])) == 1) {
       x[, var] <- numeric(sample_size)
       allequal <- c(allequal, var)
@@ -504,12 +652,12 @@ geo_reg <- function(manifold, x, y, estimator, c = NULL, p_tol = 1e-5, V_tol = 1
   if (any(abs(colMeans(x)) > 0.000001)) {
     warning('the mean of the data for at least one of your independent variables is not zero; the x data should be centered for best/quickest results')
   }
-  if  (length(allequal) == n) {
+  if  (length(allequal) == k) {
     current_p <- as.matrix(y[, 1])
   } else {
     current_p <- geo_reg(manifold, t(t(numeric(sample_size))), y, estimator, c, p_tol, V_tol, max_iter)$p
   }
-  current_V <- matrix(0L, nrow = embedded, ncol = n)
+  current_V <- matrix(0L, nrow = embedded, ncol = k)
   old_p <- current_p
   old_V <- current_V
   count <- 0
@@ -518,27 +666,37 @@ geo_reg <- function(manifold, x, y, estimator, c = NULL, p_tol = 1e-5, V_tol = 1
   if ((estimator == 'huber') | (estimator == 'tukey')) {
     if (manifold == 'euclidean') {
       dimension <- embedded
-    } else if (manifold == 'sphere') {
+    } else if ((manifold == 'sphere') | (manifold == 'hyperbolic')) {
       dimension <- embedded - 1
     } else if (manifold == 'kendall') {
       dimension <- 2 * embedded - 4
     }
-    xi <- (2 * Pinv(dimension / 2, 0.5))^0.5
+    xi <- (2 * Pinv(dimension / 2, 0.5)) ^ 0.5
     current_shifts <- current_V %*% t(x)
     deviations <- dist(manifold, expo2(manifold, current_p, current_shifts), y)
-    mad <- stats::median(deviations)
+    mad <- median(deviations)
     sigma <- mad / xi
     cutoff <- c * sigma
   }
-  current_resids<- eps(manifold, current_p, current_V, x, y)
+  current_resids <- eps(manifold, current_p, current_V, x, y)
   current_loss <- sum(rho(mag(manifold, current_resids), estimator, cutoff))
   step <- grad(manifold, current_p, current_V, x, y, current_resids, estimator, cutoff)
   V_diffs <- mag(manifold, (pt2(manifold, old_p, current_p, old_V) - current_V))
   lambda <- 0.1
-  while ((count == 0) | ((count < max_iter) & (alt_count < 100000) & ((dist(manifold, old_p, current_p) > p_tol) | (any(V_diffs > V_tol))))) {
-    new_p <- expo(manifold, current_p, -lambda * step$p)
+  while (((count == 0) | ((count < max_iter) & ((dist(manifold, old_p, current_p) > p_tol) | (any(V_diffs > V_tol))))) & (alt_count < 100000)) {
+    new_p <- tryCatch(expo(manifold, current_p, -lambda * step$p), warning = function(w) 'warning')
+    while ((new_p[1] == 'warning') | (mag(manifold, -lambda * step$p) > 10)) {
+      lambda <- lambda / 2
+      new_p <- tryCatch(expo(manifold, current_p, -lambda * step$p), warning = function(w) 'warning')
+    }
     new_V <- pt2(manifold, current_p, new_p, current_V - lambda * step$V)
-    new_resids<- eps(manifold, new_p, new_V, x, y)
+    new_resids <- tryCatch(eps(manifold, new_p, new_V, x, y), warning = function(w) 'warning')
+    while ((new_resids[1] == 'warning') | any(Re(ip(manifold, new_V, as.vector(new_p))) > 0.000001)) {
+      lambda <- lambda / 2
+      new_p <- expo(manifold, current_p, -lambda * step$p)
+      new_V <- pt2(manifold, current_p, new_p, current_V - lambda * step$V)
+      new_resids <- tryCatch(eps(manifold, new_p, new_V, x, y), warning = function(w) 'warning')
+    }
     new_loss <- sum(rho(mag(manifold, new_resids), estimator, cutoff))
     if (current_loss >= new_loss) {
       alt_count <- 0
@@ -549,15 +707,19 @@ geo_reg <- function(manifold, x, y, estimator, c = NULL, p_tol = 1e-5, V_tol = 1
       if ((estimator == 'huber') | (estimator == 'tukey')) {
         current_shifts <- current_V %*% t(x)
         deviations <- dist(manifold, expo2(manifold, current_p, current_shifts), y)
-        mad <- stats::median(deviations)
+        mad <- median(deviations)
         sigma <- mad / xi
         cutoff <- c * sigma
       }
-    current_resids<- new_resids
+      current_resids <- new_resids
       current_loss <- sum(rho(mag(manifold, current_resids), estimator, cutoff))
       step <- grad(manifold, current_p, current_V, x, y, current_resids, estimator, cutoff)
       V_diffs <- mag(manifold, (pt2(manifold, old_p, current_p, old_V) - current_V))
-      lambda <- 8 * lambda
+      if ((manifold == 'euclidean') | (manifold == 'sphere') | (manifold == 'kendall')) {
+        lambda <- 8 * lambda
+      #} else if (manifold == 'hyperbolic') {
+      #  lambda <- 1.1 * lambda
+      }
       count <- count + 1
     } else {
       lambda <- lambda / 2
@@ -577,14 +739,14 @@ geo_reg <- function(manifold, x, y, estimator, c = NULL, p_tol = 1e-5, V_tol = 1
 
 #' Gradient descent for location based on M-type estimators
 #'
-#' Finds \eqn{\mathrm{argmin}_{p\in M}\sum_{i=1}^{N} \rho(d(p,y_i))} through a
+#' Finds \eqn{\mathrm{argmin}_{p\in M}\sum_{i=1} ^ {N} \rho(d(p,y_i))} through a
 #' gradient descent algorithm.
 #'
 #' In the case of the \code{'sphere'}, an error will be raised if all points are
 #' on a pair of antipodes.
 #'
-#' @param manifold Type of manifold (\code{'euclidean'}, \code{'sphere'}, or
-#'   \code{'kendall'}).
+#' @param manifold Type of manifold (\code{'euclidean'}, \code{'sphere'},
+#'   \code{'hyperbolic'}, or \code{'kendall'}).
 #' @param y A matrix or data frame whose columns represent points on the
 #'   manifold.
 #' @param estimator M-type estimator (\code{'l2'}, \code{'l1'}, \code{'huber'},

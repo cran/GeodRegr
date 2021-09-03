@@ -7,8 +7,8 @@
 exp_map(manifold, p, v)
 }
 \arguments{
-\item{manifold}{Type of manifold (\code{'euclidean'}, \code{'sphere'}, or
-\code{'kendall'}).}
+\item{manifold}{Type of manifold (\code{'euclidean'}, \code{'sphere'},
+\code{'hyperbolic'}, or \code{'kendall'}).}
 
 \item{p}{A vector (or column matrix) representing a point on the manifold.}
 
@@ -21,7 +21,7 @@ A vector representing a point on the manifold.
 Performs the exponential map \eqn{\textrm{Exp}_p(v)} on the given manifold.
 }
 \examples{
-exp_map('sphere', c(1, 0, 0, 0, 0), c(0, 0, pi / 4, 0, 0))
+exp_map('hyperbolic', c(1, 0, 0, 0, 0), c(0, 0, pi / 4, 0, 0))
 
 }
 \references{
@@ -32,6 +32,10 @@ Fletcher, P. T. (2013). Geodesic regression and the theory of
   Cornea, E., Zhu, H., Kim, P. and Ibrahim, J. G. (2017). Regression models
   on Riemannian symmetric spaces. Journal of the Royal Statistical Society:
   Series B, 79, 463-482.
+
+  Calinon, S. (2020). Gaussians on Riemannian manifolds: Applications for
+  robot learning and adaptive control. IEEE Robotics & Automation Magazine,
+  27, 33-45.
 
   Shin, H.-Y. and Oh H.-S. (2020). Robust Geodesic Regression. <arXiv:2007.04518>
 }

@@ -12,7 +12,7 @@ A named list containing \code{x} {a vector containing the ages}
 \source{
 Vilmann's rat data set from pp. 408-414 of Bookstein. Original data
   available at
-  \url{https://life.bio.sunysb.edu/morph/data/Book-VilmannRat.txt}.
+  \url{https://www.sbmorphometrics.org/data/Book-VilmannRat.txt}.
 }
 \usage{
 data(calvaria)

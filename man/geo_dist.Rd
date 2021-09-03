@@ -7,8 +7,8 @@
 geo_dist(manifold, p1, p2)
 }
 \arguments{
-\item{manifold}{Type of manifold (\code{'euclidean'}, \code{'sphere'}, or
-\code{'kendall'}).}
+\item{manifold}{Type of manifold (\code{'euclidean'}, \code{'sphere'},
+\code{'hyperbolic'}, or \code{'kendall'}).}
 
 \item{p1}{A vector (or column matrix) representing a point on the manifold.}
 

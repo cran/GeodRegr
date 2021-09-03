@@ -19,7 +19,7 @@
 #'   104th, and 160th entries are corrupted)
 #' @source Vilmann's rat data set from pp. 408-414 of Bookstein. Original data
 #'   available at
-#'   \url{https://life.bio.sunysb.edu/morph/data/Book-VilmannRat.txt}.
+#'   \url{https://www.sbmorphometrics.org/data/Book-VilmannRat.txt}.
 #' @references Bookstein, F. L. (1991). Morphometric Tools for Landmark Data:
 #'   Geometry and Biology. Cambridge Univ, 408-414.
 #'

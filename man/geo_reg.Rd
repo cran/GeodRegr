@@ -16,8 +16,8 @@ geo_reg(
 )
 }
 \arguments{
-\item{manifold}{Type of manifold (\code{'euclidean'}, \code{'sphere'}, or
-\code{'kendall'}).}
+\item{manifold}{Type of manifold (\code{'euclidean'}, \code{'sphere'},
+\code{'hyperbolic'}, or \code{'kendall'}).}
 
 \item{x}{A vector, matrix, or data frame of independent variables; for
 matrices and data frames, the rows and columns represent the subjects and
@@ -52,7 +52,7 @@ A named list containing \item{p}{a vector representing the estimate
   gradient descent steps taken.}
 }
 \description{
-Finds \eqn{\mathrm{argmin}_{(p,V)\in M\times T_pM^n}\sum_{i=1}^{N}
+Finds \eqn{\mathrm{argmin}_{(p,V)\in M\times (T_pM) ^ n}\sum_{i=1} ^ {N}
 \rho(d(\mathrm{Exp}(p,Vx_i),y_i))} through a gradient descent algorithm.
 }
 \details{
